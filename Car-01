@@ -1,0 +1,1591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>CAR 01 · ARENA CTRL</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:        #080a0d;
+      --surface:   #0d1117;
+      --surface2:  #111820;
+      --border:    rgba(255,255,255,0.07);
+      --border2:   rgba(255,255,255,0.12);
+      --text:      #e8edf2;
+      --muted:     #4a5568;
+      --accent:    #ff3b5c;
+      --accent2:   #ff7096;
+      --danger:    #ff3b3b;
+      --safe:      #00e89a;
+      --warn:      #ffbe0b;
+      --glow:      0 0 20px rgba(255,59,92,0.45);
+      --font-head: 'Syne', sans-serif;
+      --font-mono: 'DM Mono', monospace;
+      --r: 10px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; touch-action: none; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font-mono); font-size: 13px; }
+
+    body::before {
+      content: ''; position: fixed; inset: 0; z-index: 0;
+      background: radial-gradient(ellipse 60% 50% at 20% 20%, rgba(255,59,92,0.06), transparent),
+                  radial-gradient(ellipse 50% 40% at 80% 80%, rgba(180,20,40,0.04), transparent);
+      pointer-events: none;
+    }
+    body::after {
+      content: ''; position: fixed; inset: 0; z-index: 0;
+      background-image: linear-gradient(var(--border) 1px, transparent 1px),
+                        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 32px 32px; pointer-events: none;
+    }
+
+    .shell {
+      position: relative; z-index: 1;
+      display: grid;
+      grid-template-rows: auto auto auto 1fr auto auto;
+      height: 100dvh; max-width: 520px; margin: 0 auto;
+      padding: 16px; gap: 10px;
+    }
+
+    /* ── Top bar ── */
+    .topbar { display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid var(--border2); }
+    .logo-group { display: flex; align-items: center; gap: 12px; }
+    .car-badge { width: 44px; height: 44px; border-radius: 10px; background: var(--accent); display: flex; align-items: center; justify-content: center; box-shadow: var(--glow); flex-shrink: 0; }
+    .car-badge svg { width: 24px; height: 24px; fill: #000; }
+    .logo-text { display: flex; flex-direction: column; }
+    .logo-title { font-family: var(--font-head); font-size: 20px; font-weight: 800; letter-spacing: -0.02em; color: var(--accent); text-shadow: var(--glow); line-height: 1; }
+    .logo-sub { font-size: 9px; letter-spacing: 0.25em; color: var(--muted); text-transform: uppercase; margin-top: 2px; }
+    .status-cluster { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+    .bt-pill { display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 20px; border: 1px solid var(--border2); background: var(--surface); cursor: pointer; transition: all 0.2s; font-size: 10px; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; }
+    .bt-pill:hover { border-color: var(--accent); color: var(--text); }
+    .bt-pill.connected { border-color: var(--safe); color: var(--safe); }
+    .bt-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); transition: background 0.3s, box-shadow 0.3s; }
+    .bt-pill.connected .dot { background: var(--safe); box-shadow: 0 0 6px var(--safe); animation: pulse 2s infinite; }
+    .peer-pill { display: flex; align-items: center; gap: 5px; font-size: 9px; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; }
+    .peer-pill .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--muted); }
+    .peer-pill.online .dot { background: var(--accent); box-shadow: 0 0 5px var(--accent); }
+    .peer-pill.online { color: var(--accent); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    /* ── Battery Bar (dual) ── */
+    .battery-row {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    }
+    .batt-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--r);
+      padding: 8px 12px; display: flex; flex-direction: column; gap: 5px; position: relative; overflow: hidden;
+    }
+    .batt-header {
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .batt-car-label {
+      font-size: 8px; letter-spacing: 0.2em; color: var(--muted); text-transform: uppercase;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .batt-led {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--muted);
+      transition: background 0.3s, box-shadow 0.3s;
+      flex-shrink: 0;
+    }
+    .batt-led.online  { background: var(--safe);  box-shadow: 0 0 6px var(--safe);  animation: pulse 2s infinite; }
+    .batt-led.offline { background: var(--danger); box-shadow: 0 0 4px var(--danger); }
+    .batt-pct {
+      font-family: var(--font-head); font-size: 18px; font-weight: 700;
+      color: var(--safe); line-height: 1; transition: color 0.3s;
+    }
+    .batt-pct.warn   { color: var(--warn); }
+    .batt-pct.danger { color: var(--danger); animation: flash 0.5s infinite; }
+    .batt-pct.offline { color: var(--muted); }
+    .batt-track {
+      width: 100%; height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden;
+    }
+    .batt-fill {
+      height: 100%; border-radius: 2px;
+      background: var(--safe); transition: width 0.4s, background 0.3s;
+    }
+    .batt-fill.warn   { background: var(--warn); }
+    .batt-fill.danger { background: var(--danger); }
+    .batt-fill.offline { background: var(--muted); }
+    .batt-conn-label {
+      font-size: 8px; letter-spacing: 0.12em; color: var(--muted);
+    }
+    .batt-conn-label.online  { color: var(--safe); }
+    .batt-conn-label.offline { color: var(--danger); }
+    @keyframes flash { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    /* ── Telemetry ── */
+    .telem { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
+    .telem-cell { padding: 8px 10px; border-right: 1px solid var(--border); position: relative; overflow: hidden; }
+    .telem-cell:last-child { border-right: none; }
+    .telem-label { font-size: 8px; letter-spacing: 0.2em; color: var(--muted); text-transform: uppercase; }
+    .telem-val { font-family: var(--font-head); font-size: 16px; font-weight: 700; color: var(--text); line-height: 1.2; margin-top: 1px; transition: color 0.2s; }
+    .telem-val.danger { color: var(--danger); animation: flash 0.3s infinite; }
+    .telem-val.warn   { color: var(--warn); }
+    .telem-val.safe   { color: var(--safe); }
+    .telem-val.active { color: var(--accent); }
+    .telem-cell::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background: var(--accent); opacity: 0; transition: opacity 0.3s; }
+    .telem-cell.lit::after { opacity: 1; }
+
+    /* ── Mode tabs ── */
+    .mode-tabs { display: flex; gap: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 5px; }
+    .tab { flex: 1; padding: 8px 4px; border-radius: 7px; border: none; background: transparent; color: var(--muted); font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .tab svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; }
+    .tab:hover { color: var(--text); background: var(--surface2); }
+    .tab.active { background: var(--accent); color: #000; box-shadow: var(--glow); }
+    .tab.active svg { stroke: #000; }
+
+    /* ── Panels ── */
+    .panel { display: none; height: 100%; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+    .panel.active { display: flex; }
+
+    /* ══ CONTROL TOGGLE ══ */
+    .ctrl-toggle-row {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--surface); border: 1px solid var(--border2);
+      border-radius: 30px; padding: 5px 10px 5px 6px;
+      user-select: none;
+    }
+    .ctrl-toggle-row span { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); transition: color 0.2s; }
+    .ctrl-toggle-row span.active-label { color: var(--accent); }
+    .toggle-track { width: 48px; height: 26px; background: var(--surface2); border: 1px solid var(--border2); border-radius: 13px; position: relative; cursor: pointer; transition: background 0.25s, border-color 0.25s; flex-shrink: 0; }
+    .toggle-track.on { background: var(--accent); border-color: var(--accent); box-shadow: var(--glow); }
+    .toggle-thumb { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--muted); transition: transform 0.25s cubic-bezier(.34,1.56,.64,1), background 0.2s; }
+    .toggle-track.on .toggle-thumb { transform: translateX(22px); background: #000; }
+
+    /* ══ D-PAD ══ */
+    .dpad { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); gap: 8px; width: min(280px, 78vw); aspect-ratio: 1; }
+    .dpad-btn { position: relative; background: var(--surface); border: 1px solid var(--border2); border-radius: var(--r); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer; user-select: none; -webkit-user-select: none; transition: transform 0.06s ease, border-color 0.1s, box-shadow 0.1s; overflow: hidden; }
+    .dpad-btn::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 50% 50%, var(--accent), transparent 70%); opacity: 0; transition: opacity 0.15s; }
+    .dpad-btn:active::before, .dpad-btn.active::before { opacity: 0.15; }
+    .dpad-btn:active, .dpad-btn.active { transform: scale(0.93); border-color: var(--accent); box-shadow: var(--glow); }
+    .dpad-btn svg { width: 24px; height: 24px; stroke: var(--muted); fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; transition: stroke 0.1s; position: relative; z-index: 1; }
+    .dpad-btn:active svg, .dpad-btn.active svg { stroke: var(--accent); }
+    .dpad-btn span { font-size: 8px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); transition: color 0.1s; position: relative; z-index: 1; }
+    .dpad-btn:active span, .dpad-btn.active span { color: var(--accent); }
+    .dpad-btn.stop-btn { border-color: rgba(255,59,92,0.2); }
+    .dpad-btn.stop-btn svg { stroke: var(--danger); }
+    .dpad-btn.stop-btn span { color: var(--danger); opacity: 0.7; }
+    .dpad-btn.stop-btn:active, .dpad-btn.stop-btn.stop-flash { border-color: var(--danger); box-shadow: 0 0 20px rgba(255,59,92,0.4); transform: scale(0.93); }
+    #fwd   { grid-column:2; grid-row:1; }
+    #left  { grid-column:1; grid-row:2; }
+    #stop  { grid-column:2; grid-row:2; }
+    #right { grid-column:3; grid-row:2; }
+    #bwd   { grid-column:2; grid-row:3; }
+    .key-hint { font-size: 9px; letter-spacing: 0.15em; color: var(--muted); text-align: center; }
+    .key-hint kbd { display: inline-block; border: 1px solid var(--border2); border-radius: 4px; padding: 1px 6px; font-family: var(--font-mono); font-size: 8px; color: var(--muted); }
+
+    /* ══ DUAL JOYSTICK LAYOUT ══ */
+    .dual-joy-wrap {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 16px;
+      width: 100%;
+    }
+
+    .joy-unit {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      max-width: 180px;
+    }
+
+    .joy-unit-label {
+      font-size: 8px;
+      letter-spacing: 0.2em;
+      color: var(--accent);
+      text-transform: uppercase;
+      text-align: center;
+    }
+
+    .joystick-base {
+      position: relative;
+      width: min(140px, 38vw);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: radial-gradient(circle at 50% 50%, var(--surface2) 0%, var(--surface) 60%, var(--bg) 100%);
+      border: 1px solid var(--border2);
+      box-shadow:
+        0 0 0 1px var(--border),
+        inset 0 2px 20px rgba(0,0,0,0.6),
+        0 8px 40px rgba(0,0,0,0.5);
+      cursor: crosshair;
+      touch-action: none;
+    }
+    .joystick-base::before, .joystick-base::after {
+      content: ''; position: absolute; background: var(--border2); border-radius: 1px; pointer-events: none;
+    }
+    /* Left joy: vertical line only */
+    .joystick-base.axis-y::before { left: 50%; top: 10%; bottom: 10%; width: 1px; transform: translateX(-50%); }
+    .joystick-base.axis-y::after  { display: none; }
+    /* Right joy: horizontal line only */
+    .joystick-base.axis-x::before { display: none; }
+    .joystick-base.axis-x::after  { top: 50%; left: 10%; right: 10%; height: 1px; transform: translateY(-50%); }
+
+    .joy-ring { position: absolute; border-radius: 50%; border: 1px dashed var(--border); pointer-events: none; }
+    .joy-ring-1 { inset: 25%; }
+    .joy-ring-2 { inset: 10%; }
+
+    .joy-label { position: absolute; font-size: 8px; letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; pointer-events: none; }
+    .joy-label.n { top: 6%;    left: 50%; transform: translateX(-50%); }
+    .joy-label.s { bottom: 6%; left: 50%; transform: translateX(-50%); }
+    .joy-label.w { left: 4%;   top: 50%; transform: translateY(-50%); }
+    .joy-label.e { right: 4%;  top: 50%; transform: translateY(-50%); }
+
+    .joy-knob {
+      position: absolute; width: 30%; aspect-ratio: 1; border-radius: 50%;
+      background: radial-gradient(circle at 40% 35%, var(--accent2), var(--accent) 60%);
+      box-shadow: var(--glow), 0 4px 16px rgba(0,0,0,0.7), inset 0 1px 2px rgba(255,255,255,0.2);
+      top: 50%; left: 50%; transform: translate(-50%, -50%);
+      transition: box-shadow 0.15s; pointer-events: none; will-change: transform;
+    }
+    .joy-knob.held { box-shadow: var(--glow), 0 2px 8px rgba(0,0,0,0.8), inset 0 1px 2px rgba(255,255,255,0.15); }
+    .joystick-base.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--border), inset 0 2px 20px rgba(0,0,0,0.6), 0 0 30px -5px var(--accent), 0 8px 40px rgba(0,0,0,0.5); }
+
+    /* Vector readouts under each joystick */
+    .joy-vec-cell {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 7px; padding: 5px 10px;
+      display: flex; align-items: center; justify-content: space-between;
+      width: 100%;
+    }
+    .joy-vec-label { font-size: 8px; letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; }
+    .joy-vec-val { font-family: var(--font-head); font-size: 14px; font-weight: 700; color: var(--accent); min-width: 36px; text-align: right; }
+
+    .joy-deadzone-note { font-size: 8px; color: var(--muted); letter-spacing: 0.08em; text-align: center; }
+    .joy-deadzone-note span { color: var(--accent); }
+
+    /* ── Auto panel ── */
+    .auto-card { width: 100%; max-width: 340px; background: var(--surface); border: 1px solid var(--border2); border-radius: 16px; padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
+    .auto-orb { width: 80px; height: 80px; border-radius: 50%; background: conic-gradient(var(--safe), var(--accent), var(--safe)); display: flex; align-items: center; justify-content: center; animation: spin 4s linear infinite; box-shadow: 0 0 30px rgba(0,232,154,0.3); }
+    .auto-orb.off { background: var(--surface2); animation: none; box-shadow: none; }
+    .auto-orb svg { width: 34px; height: 34px; stroke: #000; fill: none; stroke-width: 2; stroke-linecap: round; }
+    .auto-orb.off svg { stroke: var(--muted); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .auto-title { font-family: var(--font-head); font-size: 22px; font-weight: 800; letter-spacing: -0.01em; }
+    .auto-desc { font-size: 11px; color: var(--muted); line-height: 1.6; }
+    .auto-toggle { width: 100%; padding: 14px; border-radius: 10px; border: 1px solid var(--safe); background: transparent; color: var(--safe); font-family: var(--font-head); font-size: 14px; font-weight: 700; letter-spacing: 0.05em; cursor: pointer; transition: all 0.2s; }
+    .auto-toggle:hover { background: rgba(0,232,154,0.08); }
+    .auto-toggle.on { background: var(--safe); color: #000; box-shadow: 0 0 20px rgba(0,232,154,0.3); }
+
+    /* ── Dance panel ── */
+    .dance-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; }
+    .dance-card { background: var(--surface); border: 1px solid var(--border2); border-radius: 12px; padding: 14px 12px; cursor: pointer; transition: all 0.18s; display: flex; flex-direction: column; gap: 6px; position: relative; overflow: hidden; }
+    .dance-card::after { content: ''; position: absolute; inset: 0; background: var(--accent); opacity: 0; transition: opacity 0.2s; }
+    .dance-card:hover::after { opacity: 0.06; }
+    .dance-card:active { transform: scale(0.97); }
+    .dance-card.playing { border-color: var(--accent); box-shadow: var(--glow); }
+    .dance-icon { font-size: 22px; }
+    .dance-name { font-family: var(--font-head); font-size: 13px; font-weight: 800; letter-spacing: -0.01em; }
+    .dance-desc { font-size: 9px; color: var(--muted); letter-spacing: 0.05em; line-height: 1.4; }
+    .dance-dur  { font-size: 9px; color: var(--accent); letter-spacing: 0.1em; }
+    .dance-status { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; }
+    .dance-status-text { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+    .dance-status-text span { color: var(--accent); }
+    .abort-btn { padding: 5px 12px; border-radius: 6px; border: 1px solid var(--danger); background: transparent; color: var(--danger); font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.1em; cursor: pointer; transition: all 0.15s; text-transform: uppercase; }
+    .abort-btn:hover { background: rgba(255,59,92,0.1); }
+    .peer-required { font-size: 10px; color: var(--muted); text-align: center; letter-spacing: 0.08em; padding: 8px; border: 1px dashed var(--border2); border-radius: 8px; }
+    .peer-required span { color: var(--warn); }
+
+    /* ── Crash log ── */
+    .crash-log { width: 100%; flex: 0 0 auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 8px 12px; min-height: 38px; display: flex; align-items: center; gap: 8px; overflow: hidden; }
+    .crash-emoji { font-size: 16px; flex-shrink: 0; }
+    .crash-msg { font-size: 10px; color: var(--warn); letter-spacing: 0.05em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-style: italic; }
+    .crash-msg.empty { color: var(--muted); font-style: normal; }
+
+    /* ── Proximity bar ── */
+    .prox-bar-wrap { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 6px 12px; display: flex; align-items: center; gap: 10px; }
+    .prox-label { font-size: 9px; letter-spacing: 0.15em; color: var(--muted); text-transform: uppercase; flex-shrink: 0; }
+    .prox-track { flex: 1; height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; }
+    .prox-fill { height: 100%; width: 100%; background: var(--safe); border-radius: 2px; transition: width 0.15s, background 0.15s; }
+    .prox-cm { font-size: 10px; color: var(--text); letter-spacing: 0.05em; flex-shrink: 0; min-width: 36px; text-align: right; }
+
+    /* ── Animations ── */
+    @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+    .shell > * { animation: fadeUp 0.45s cubic-bezier(.22,1,.36,1) both; }
+    .shell > *:nth-child(1){animation-delay:.04s} .shell > *:nth-child(2){animation-delay:.10s}
+    .shell > *:nth-child(3){animation-delay:.16s} .shell > *:nth-child(4){animation-delay:.22s}
+    .shell > *:nth-child(5){animation-delay:.28s} .shell > *:nth-child(6){animation-delay:.34s}
+    .shell > *:nth-child(7){animation-delay:.40s}
+
+    @keyframes shake {
+      0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)}
+      40%{transform:translateX(8px)} 60%{transform:translateX(-5px)} 80%{transform:translateX(5px)}
+    }
+    .shake { animation: shake 0.4s ease both !important; }
+
+    .dance-progress { width: 100%; height: 3px; background: var(--surface2); border-radius: 2px; overflow: hidden; margin-top: 4px; }
+    .dance-progress-fill { height: 100%; width: 0%; background: var(--accent); box-shadow: var(--glow); transition: width 0.2s linear; border-radius: 2px; }
+
+    .ctrl-views { position: relative; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .ctrl-view { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 12px; transition: opacity 0.25s, transform 0.25s; }
+    .ctrl-view.hidden { opacity: 0; pointer-events: none; position: absolute; top: 0; transform: scale(0.96); }
+
+    /* ══════════════════════════════════════════
+       FIGHT MODE OVERLAY
+    ══════════════════════════════════════════ */
+    #fight-overlay {
+      display: none; position: fixed; inset: 0; z-index: 100;
+      background: #050709;
+      flex-direction: column; align-items: center; justify-content: flex-start;
+      padding: 14px 16px 16px;
+      gap: 10px;
+    }
+    #fight-overlay.active { display: flex; }
+
+    /* countdown bar */
+    .fight-timer-wrap {
+      width: 100%; background: var(--surface); border: 1px solid var(--border2);
+      border-radius: 14px; padding: 12px 18px;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    .fight-clock {
+      font-family: var(--font-head); font-size: 42px; font-weight: 800;
+      letter-spacing: -0.03em; color: var(--accent); text-shadow: var(--glow);
+      line-height: 1; min-width: 100px;
+    }
+    .fight-clock.warn  { color: var(--warn); text-shadow: 0 0 20px rgba(255,190,11,0.5); }
+    .fight-clock.danger{ color: var(--danger); text-shadow: 0 0 20px rgba(255,59,59,0.6); animation: flash 0.5s infinite; }
+    .fight-time-bar-wrap { flex: 1; }
+    .fight-time-label { font-size: 8px; letter-spacing: 0.2em; color: var(--muted); text-transform: uppercase; margin-bottom: 5px; }
+    .fight-time-track { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+    .fight-time-fill  { height: 100%; width: 100%; background: var(--accent); border-radius: 3px; transition: width 0.5s linear, background 0.5s; }
+
+    /* scoreboard */
+    .fight-scores {
+      width: 100%; display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center;
+    }
+    .fight-score-card {
+      background: var(--surface); border: 1px solid var(--border2); border-radius: 14px;
+      padding: 14px 12px; display: flex; flex-direction: column; align-items: center; gap: 6px;
+      position: relative; overflow: hidden; transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .fight-score-card.leading { border-color: var(--accent); box-shadow: var(--glow); }
+    .fight-score-card.hit-flash { animation: hitFlash 0.35s ease; }
+    @keyframes hitFlash { 0%{background:rgba(255,59,92,0.25)} 100%{background:var(--surface)} }
+    .fight-score-car  { font-size: 9px; letter-spacing: 0.2em; color: var(--muted); text-transform: uppercase; }
+    .fight-score-num  { font-family: var(--font-head); font-size: 52px; font-weight: 800; line-height: 1; color: var(--text); transition: color 0.2s; }
+    .fight-score-card.leading .fight-score-num { color: var(--accent); }
+    .fight-score-label{ font-size: 8px; letter-spacing: 0.12em; color: var(--muted); }
+    .fight-vs { font-family: var(--font-head); font-size: 20px; font-weight: 800; color: var(--muted); }
+
+    /* IR hit feed */
+    .fight-hitfeed {
+      width: 100%; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 8px 12px; min-height: 42px;
+      display: flex; align-items: center; gap: 8px; overflow: hidden; flex-shrink: 0;
+    }
+    .fight-hitfeed-icon { font-size: 18px; flex-shrink: 0; }
+    .fight-hitfeed-text { font-size: 10px; color: var(--warn); letter-spacing: 0.06em; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .fight-hitfeed-text.empty { color: var(--muted); font-style: normal; }
+
+    /* drive area inside fight mode */
+    .fight-drive-area {
+      flex: 1; width: 100%; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 12px;
+    }
+    .fight-drive-label {
+      font-size: 8px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--accent);
+    }
+
+    /* exit button */
+    .fight-exit-row {
+      width: 100%; display: flex; flex-direction: column; gap: 6px; align-items: center;
+    }
+    .fight-exit-btn {
+      width: 100%; padding: 14px; border-radius: 12px;
+      border: 1px solid var(--muted); background: transparent;
+      color: var(--muted); font-family: var(--font-head); font-size: 15px; font-weight: 700;
+      letter-spacing: 0.05em; cursor: pointer; transition: all 0.2s;
+    }
+    .fight-exit-btn:hover  { border-color: var(--danger); color: var(--danger); }
+    .fight-exit-btn.pending{ border-color: var(--warn); color: var(--warn);
+      box-shadow: 0 0 16px rgba(255,190,11,0.3); animation: pulse 1s infinite; }
+    .fight-exit-note { font-size: 9px; color: var(--muted); letter-spacing: 0.1em; text-align: center; }
+
+    /* winner overlay on top of fight overlay */
+    #fight-result {
+      display: none; position: absolute; inset: 0; z-index: 10;
+      background: rgba(5,7,9,0.92); backdrop-filter: blur(4px);
+      flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+      padding: 24px;
+    }
+    #fight-result.active { display: flex; }
+    .result-trophy { font-size: 64px; line-height: 1; }
+    .result-title  { font-family: var(--font-head); font-size: 28px; font-weight: 800; letter-spacing: -0.02em; color: var(--accent); text-shadow: var(--glow); text-align: center; }
+    .result-sub    { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-align: center; }
+    .result-scores { display: flex; gap: 20px; align-items: center; }
+    .result-score-item { text-align: center; }
+    .result-score-item .rs-num { font-family: var(--font-head); font-size: 36px; font-weight: 800; }
+    .result-score-item .rs-lbl { font-size: 9px; letter-spacing: 0.15em; color: var(--muted); text-transform: uppercase; }
+    .result-exit-btn {
+      width: 100%; max-width: 300px; padding: 14px; border-radius: 12px;
+      border: 1px solid var(--safe); background: transparent;
+      color: var(--safe); font-family: var(--font-head); font-size: 15px; font-weight: 700;
+      letter-spacing: 0.05em; cursor: pointer; transition: all 0.2s;
+    }
+    .result-exit-btn:hover { background: rgba(0,232,154,0.1); }
+    .result-exit-btn.pending { border-color: var(--warn); color: var(--warn);
+      box-shadow: 0 0 16px rgba(255,190,11,0.3); animation: pulse 1s infinite; }
+
+    /* fight tab in mode tabs */
+    .tab.fight-tab.active { background: #ff3b3b; box-shadow: 0 0 20px rgba(255,59,59,0.5); }
+  </style>
+</head>
+
+<!-- ══════════════════════════════════════════════════════
+     FIGHT MODE OVERLAY  (injected over entire shell)
+══════════════════════════════════════════════════════ -->
+<div id="fight-overlay">
+
+  <!-- Timer -->
+  <div class="fight-timer-wrap">
+    <div class="fight-clock" id="fight-clock">3:00</div>
+    <div class="fight-time-bar-wrap">
+      <div class="fight-time-label">Time Remaining</div>
+      <div class="fight-time-track"><div class="fight-time-fill" id="fight-time-fill"></div></div>
+    </div>
+  </div>
+
+  <!-- Scoreboard -->
+  <div class="fight-scores">
+    <div class="fight-score-card" id="fscore-my">
+      <div class="fight-score-car" id="fscore-my-label">CAR 01</div>
+      <div class="fight-score-num" id="fscore-my-num">0</div>
+      <div class="fight-score-label">HITS</div>
+    </div>
+    <div class="fight-vs">VS</div>
+    <div class="fight-score-card" id="fscore-peer">
+      <div class="fight-score-car" id="fscore-peer-label">CAR 02</div>
+      <div class="fight-score-num" id="fscore-peer-num">0</div>
+      <div class="fight-score-label">HITS</div>
+    </div>
+  </div>
+
+  <!-- Hit feed -->
+  <div class="fight-hitfeed">
+    <div class="fight-hitfeed-icon" id="fight-hitfeed-icon">🎯</div>
+    <div class="fight-hitfeed-text empty" id="fight-hitfeed-text">No hits yet — charge!</div>
+  </div>
+
+  <!-- Drive controls (same dpad / joy, just inside fight) -->
+  <div class="fight-drive-area">
+    <div class="fight-drive-label">⚔ Fight Controls</div>
+    <div class="ctrl-toggle-row" style="margin-bottom:4px">
+      <span id="flbl-dpad" class="active-label">D-Pad</span>
+      <div class="toggle-track" id="fctrl-toggle" onclick="toggleFightControlMode()">
+        <div class="toggle-thumb"></div>
+      </div>
+      <span id="flbl-joy">Joystick</span>
+    </div>
+    <div class="ctrl-views" style="width:100%">
+      <div class="ctrl-view" id="fview-dpad">
+        <div class="dpad" id="fdpad">
+          <div class="dpad-btn" id="ffwd"><svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg><span>Fwd</span></div>
+          <div class="dpad-btn" id="fleft"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg><span>Left</span></div>
+          <div class="dpad-btn stop-btn" id="fstop"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg><span>Stop</span></div>
+          <div class="dpad-btn" id="fright"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg><span>Right</span></div>
+          <div class="dpad-btn" id="fbwd"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg><span>Rev</span></div>
+        </div>
+      </div>
+      <div class="ctrl-view hidden" id="fview-joy">
+        <div class="dual-joy-wrap">
+          <div class="joy-unit">
+            <div class="joy-unit-label">FWD · REV</div>
+            <div class="joystick-base axis-y" id="fjoy-base-left">
+              <div class="joy-ring joy-ring-1"></div><div class="joy-ring joy-ring-2"></div>
+              <div class="joy-label n">FWD</div><div class="joy-label s">REV</div>
+              <div class="joy-knob" id="fjoy-knob-left"></div>
+            </div>
+            <div class="joy-vec-cell"><span class="joy-vec-label">Throttle</span><span class="joy-vec-val" id="fjoy-throttle">0%</span></div>
+          </div>
+          <div class="joy-unit">
+            <div class="joy-unit-label">LEFT · RIGHT</div>
+            <div class="joystick-base axis-x" id="fjoy-base-right">
+              <div class="joy-ring joy-ring-1"></div><div class="joy-ring joy-ring-2"></div>
+              <div class="joy-label w">L</div><div class="joy-label e">R</div>
+              <div class="joy-knob" id="fjoy-knob-right"></div>
+            </div>
+            <div class="joy-vec-cell"><span class="joy-vec-label">Steering</span><span class="joy-vec-val" id="fjoy-steering">0%</span></div>
+          </div>
+        </div>
+        <div class="joy-deadzone-note">Dead zone <span>15%</span> · Lift to stop</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Exit -->
+  <div class="fight-exit-row">
+    <button class="fight-exit-btn" id="fight-exit-btn" onclick="requestFightExit()">⏹ Exit Fight Mode</button>
+    <div class="fight-exit-note" id="fight-exit-note">Both players must press Exit to leave</div>
+  </div>
+
+  <!-- Result screen (shown on top when timer ends) -->
+  <div id="fight-result">
+    <div class="result-trophy" id="result-trophy">🏆</div>
+    <div class="result-title" id="result-title">—</div>
+    <div class="result-sub" id="result-sub">—</div>
+    <div class="result-scores">
+      <div class="result-score-item">
+        <div class="rs-num" id="result-my-num" style="color:var(--accent)">0</div>
+        <div class="rs-lbl" id="result-my-lbl">CAR 01</div>
+      </div>
+      <div style="font-family:var(--font-head);font-size:22px;color:var(--muted)">VS</div>
+      <div class="result-score-item">
+        <div class="rs-num" id="result-peer-num" style="color:var(--muted)">0</div>
+        <div class="rs-lbl" id="result-peer-lbl">CAR 02</div>
+      </div>
+    </div>
+    <button class="result-exit-btn" id="result-exit-btn" onclick="requestFightExit()">↩ Return to Normal Mode</button>
+    <div class="fight-exit-note" id="result-exit-note">Both players must confirm to return</div>
+  </div>
+
+</div>
+<body>
+<div class="shell">
+
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="logo-group">
+      <div class="car-badge">
+        <svg viewBox="0 0 24 24"><path d="M5 17H3a2 2 0 01-2-2V9a2 2 0 012-2h2l2-4h10l2 4h2a2 2 0 012 2v6a2 2 0 01-2 2h-2m-7 0a2 2 0 100-4 2 2 0 000 4zm-5 0a2 2 0 100-4 2 2 0 000 4zm10 0a2 2 0 100-4 2 2 0 000 4z"/></svg>
+      </div>
+      <div class="logo-text">
+        <div class="logo-title">CAR 01</div>
+        <div class="logo-sub">Arena Control · RED</div>
+      </div>
+    </div>
+    <div class="status-cluster">
+      <div class="bt-pill" id="bt-pill" onclick="toggleBT()">
+        <div class="dot"></div><span id="bt-label">Connect BT</span>
+      </div>
+      <div class="peer-pill" id="peer-pill">
+        <div class="dot"></div><span id="peer-label">Peer offline</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Battery Row: Car 1 + Car 2 -->
+  <div class="battery-row">
+    <!-- Car 1 battery -->
+    <div class="batt-card">
+      <div class="batt-header">
+        <div class="batt-car-label">
+          <div class="batt-led" id="batt-led-1"></div>
+          Car 01
+        </div>
+        <div class="batt-pct offline" id="batt-pct-1">—</div>
+      </div>
+      <div class="batt-track"><div class="batt-fill offline" id="batt-fill-1" style="width:0%"></div></div>
+      <div class="batt-conn-label offline" id="batt-conn-1">Not connected</div>
+    </div>
+    <!-- Car 2 battery -->
+    <div class="batt-card">
+      <div class="batt-header">
+        <div class="batt-car-label">
+          <div class="batt-led" id="batt-led-2"></div>
+          Car 02
+        </div>
+        <div class="batt-pct offline" id="batt-pct-2">—</div>
+      </div>
+      <div class="batt-track"><div class="batt-fill offline" id="batt-fill-2" style="width:0%"></div></div>
+      <div class="batt-conn-label offline" id="batt-conn-2">Peer offline</div>
+    </div>
+  </div>
+
+  <!-- Telemetry -->
+  <div class="telem">
+    <div class="telem-cell"><div class="telem-label">State</div><div class="telem-val" id="tv-state">IDLE</div></div>
+    <div class="telem-cell"><div class="telem-label">Distance</div><div class="telem-val" id="tv-dist">—</div></div>
+    <div class="telem-cell"><div class="telem-label">Mode</div><div class="telem-val" id="tv-mode">MANUAL</div></div>
+    <div class="telem-cell"><div class="telem-label">Packets</div><div class="telem-val" id="tv-pkts">0</div></div>
+  </div>
+
+  <!-- Mode tabs -->
+  <div class="mode-tabs">
+    <button class="tab active" data-panel="manual" onclick="switchTab('manual')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+      Drive
+    </button>
+    <button class="tab" data-panel="auto" onclick="switchTab('auto')">
+      <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Auto
+    </button>
+    <button class="tab" data-panel="dance" onclick="switchTab('dance')">
+      <svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+      Dance
+    </button>
+    <button class="tab fight-tab" data-panel="fight" onclick="enterFightMode()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 10c-.83 0-1.5-.67-1.5-1.5v-5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5v5c0 .83-.67 1.5-1.5 1.5z"/><path d="M20.5 10H19V8.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/><path d="M9.5 14c.83 0 1.5.67 1.5 1.5v5c0 .83-.67 1.5-1.5 1.5S8 21.33 8 20.5v-5c0-.83.67-1.5 1.5-1.5z"/><path d="M3.5 14H5v1.5c0 .83-.67 1.5-1.5 1.5S2 16.33 2 15.5 2.67 14 3.5 14z"/><path d="M14 14.5c0-.83.67-1.5 1.5-1.5h5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-5c-.83 0-1.5-.67-1.5-1.5z"/><path d="M15.5 9H17v1.5c0 .83-.67 1.5-1.5 1.5"/><path d="M10 9.5c0 .83-.67 1.5-1.5 1.5H3c-.83 0-1.5-.67-1.5-1.5S2.17 8 3 8h6.5c.83 0 1.5.67 1.5 1.5z"/><path d="M8.5 15H7v-1.5c0-.83.67-1.5 1.5-1.5"/></svg>
+      Fight
+    </button>
+  </div>
+
+  <!-- Panels -->
+  <div style="position:relative;overflow:hidden;flex:1;display:flex;flex-direction:column;gap:8px;">
+
+    <!-- ══ MANUAL PANEL ══ -->
+    <div class="panel active" id="panel-manual">
+
+      <div class="ctrl-toggle-row">
+        <span id="lbl-dpad" class="active-label">D-Pad</span>
+        <div class="toggle-track" id="ctrl-toggle" onclick="toggleControlMode()">
+          <div class="toggle-thumb"></div>
+        </div>
+        <span id="lbl-joy">Joystick</span>
+      </div>
+
+      <div class="ctrl-views">
+
+        <!-- D-PAD view -->
+        <div class="ctrl-view" id="view-dpad">
+          <div class="dpad">
+            <div class="dpad-btn" id="fwd"><svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg><span>Fwd</span></div>
+            <div class="dpad-btn" id="left"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg><span>Left</span></div>
+            <div class="dpad-btn stop-btn" id="stop"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg><span>Stop</span></div>
+            <div class="dpad-btn" id="right"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg><span>Right</span></div>
+            <div class="dpad-btn" id="bwd"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg><span>Rev</span></div>
+          </div>
+          <div class="key-hint"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> &nbsp;·&nbsp; <kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd></div>
+        </div>
+
+        <!-- DUAL JOYSTICK view -->
+        <div class="ctrl-view hidden" id="view-joy">
+          <div class="dual-joy-wrap">
+
+            <!-- LEFT: FWD / REV (Y axis only) -->
+            <div class="joy-unit">
+              <div class="joy-unit-label">FWD · REV</div>
+              <div class="joystick-base axis-y" id="joy-base-left">
+                <div class="joy-ring joy-ring-1"></div>
+                <div class="joy-ring joy-ring-2"></div>
+                <div class="joy-label n">FWD</div>
+                <div class="joy-label s">REV</div>
+                <div class="joy-knob" id="joy-knob-left"></div>
+              </div>
+              <div class="joy-vec-cell">
+                <span class="joy-vec-label">Throttle</span>
+                <span class="joy-vec-val" id="joy-throttle">0%</span>
+              </div>
+            </div>
+
+            <!-- RIGHT: LEFT / RIGHT (X axis only) -->
+            <div class="joy-unit">
+              <div class="joy-unit-label">LEFT · RIGHT</div>
+              <div class="joystick-base axis-x" id="joy-base-right">
+                <div class="joy-ring joy-ring-1"></div>
+                <div class="joy-ring joy-ring-2"></div>
+                <div class="joy-label w">L</div>
+                <div class="joy-label e">R</div>
+                <div class="joy-knob" id="joy-knob-right"></div>
+              </div>
+              <div class="joy-vec-cell">
+                <span class="joy-vec-label">Steering</span>
+                <span class="joy-vec-val" id="joy-steering">0%</span>
+              </div>
+            </div>
+
+          </div>
+          <div class="joy-deadzone-note">Dead zone <span>15%</span> · Lift to stop</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ══ AUTO PANEL ══ -->
+    <div class="panel" id="panel-auto">
+      <div class="auto-card">
+        <div class="auto-orb off" id="auto-orb">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+        </div>
+        <div class="auto-title" id="auto-title">Auto-Explore</div>
+        <div class="auto-desc">The car drives itself, navigates obstacles autonomously, and will never crash. Sit back and watch it roam.</div>
+        <div class="dance-progress"><div class="dance-progress-fill" id="auto-scan" style="width:0%"></div></div>
+        <button class="auto-toggle" id="auto-btn" onclick="toggleAuto()">ENGAGE AUTO MODE</button>
+      </div>
+    </div>
+
+    <!-- ══ DANCE PANEL ══ -->
+    <div class="panel" id="panel-dance">
+      <div class="peer-required" id="peer-required" style="display:none">⚠ Waiting for <span>peer car</span> to come online before dance mode is available.</div>
+      <div class="dance-grid" id="dance-grid">
+        <div class="dance-card" onclick="startDance('faceoff')"><div class="dance-icon">⚡</div><div class="dance-name">Face-Off</div><div class="dance-desc">Charge, retreat, spin.</div><div class="dance-dur">~8 sec</div></div>
+        <div class="dance-card" onclick="startDance('tango')"><div class="dance-icon">💃</div><div class="dance-name">Tango</div><div class="dance-desc">Push-pull mirror dance.</div><div class="dance-dur">~10 sec</div></div>
+        <div class="dance-card" onclick="startDance('orbit')"><div class="dance-icon">🌀</div><div class="dance-name">Orbit</div><div class="dance-desc">Both cars circle a shared center.</div><div class="dance-dur">~12 sec</div></div>
+        <div class="dance-card" onclick="startDance('shake')"><div class="dance-icon">🎸</div><div class="dance-name">Robot Shake</div><div class="dance-desc">Rapid alternating juke.</div><div class="dance-dur">~7 sec</div></div>
+        <div class="dance-card" onclick="startDance('wave')"><div class="dance-icon">🌊</div><div class="dance-name">Wave</div><div class="dance-desc">Forward waves, offset in phase.</div><div class="dance-dur">~9 sec</div></div>
+        <div class="dance-card" onclick="startDance('salute')"><div class="dance-icon">🫡</div><div class="dance-name">Salute</div><div class="dance-desc">Synchronized spins then a bow.</div><div class="dance-dur">~6 sec</div></div>
+      </div>
+      <div class="dance-status" id="dance-status" style="display:none">
+        <div>
+          <div class="dance-status-text">Playing: <span id="dance-name-txt">—</span></div>
+          <div class="dance-progress" style="width:180px;margin-top:6px"><div class="dance-progress-fill" id="dance-prog"></div></div>
+        </div>
+        <button class="abort-btn" onclick="abortDance()">■ Abort</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Proximity bar -->
+  <div class="prox-bar-wrap">
+    <div class="prox-label">Prox</div>
+    <div class="prox-track"><div class="prox-fill" id="prox-fill"></div></div>
+    <div class="prox-cm" id="prox-cm">— cm</div>
+  </div>
+
+  <!-- Crash log -->
+  <div class="crash-log" id="crash-log">
+    <div class="crash-emoji">🚗</div>
+    <div class="crash-msg empty" id="crash-msg">No incidents reported yet.</div>
+  </div>
+
+</div>
+<script>
+// ════════════════════════════════════════
+//  CONFIG
+// ════════════════════════════════════════
+const CAR_ROLE  = 'car1';
+const PEER_ROLE = 'car2';
+const SERVER_URL = 'wss://arena-server-ehqp.onrender.com';
+
+// ════════════════════════════════════════
+//  BLUETOOTH
+// ════════════════════════════════════════
+const BT_SERVICE = '0000ffe0-0000-1000-8000-00805f9b34fb';
+const BT_CHAR    = '0000ffe1-0000-1000-8000-00805f9b34fb';
+let btDevice = null, btChar = null, btConnected = false;
+let pkts = 0, autoOn = false, danceActive = false;
+const enc = new TextEncoder(), dec = new TextDecoder();
+
+async function toggleBT() {
+  if (!navigator.bluetooth) { alert('Web Bluetooth requires Chrome on desktop or Android.'); return; }
+  if (btConnected) { btDevice?.gatt?.disconnect(); return; }
+  try {
+    document.getElementById('bt-label').textContent = 'Scanning…';
+    btDevice = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: [BT_SERVICE] });
+    btDevice.addEventListener('gattserverdisconnected', onBTDisconnect);
+    const srv  = await btDevice.gatt.connect();
+    const svc  = await srv.getPrimaryService(BT_SERVICE);
+    btChar     = await svc.getCharacteristic(BT_CHAR);
+    await btChar.startNotifications();
+    btChar.addEventListener('characteristicvaluechanged', onBTData);
+    setBTStatus(true, btDevice.name || 'HC-Module');
+    // Update Car 1 battery LED
+    updateBattLed(1, true);
+  } catch(e) {
+    if (e.name !== 'NotFoundError') alert('BT Error: ' + e.message);
+    document.getElementById('bt-label').textContent = 'Connect BT';
+  }
+}
+
+function setBTStatus(on, name) {
+  btConnected = on;
+  const p = document.getElementById('bt-pill');
+  p.classList.toggle('connected', on);
+  document.getElementById('bt-label').textContent = on ? name : 'Connect BT';
+  updateBattLed(1, on);
+}
+
+function onBTDisconnect() {
+  btChar = null; btConnected = false;
+  setBTStatus(false);
+  setTelem('tv-state','DISC','');
+  updateBattLed(1, false);
+}
+
+let btBuf = '';
+function onBTData(e) {
+  btBuf += dec.decode(e.target.value);
+  let nl;
+  while ((nl = btBuf.indexOf('\n')) !== -1) {
+    parseLine(btBuf.slice(0, nl).trim());
+    btBuf = btBuf.slice(nl + 1);
+  }
+}
+
+function parseLine(line) {
+  // Battery: "BATT:85" for this car, "BATT2:72" for peer
+  if (line.startsWith('BATT:')) {
+    updateBattery(1, parseInt(line.slice(5)));
+  } else if (line.startsWith('BATT2:')) {
+    updateBattery(2, parseInt(line.slice(6)));
+  } else if (line.startsWith('DF:')) {
+    updateProximity('front', parseInt(line.slice(3)));
+  } else if (line.startsWith('DR:')) {
+    updateProximity('rear', parseInt(line.slice(3)));
+  } else if (line.startsWith('WARN:')) {
+    showCrashMsg(line.slice(5));
+    document.querySelector('.shell').classList.add('shake');
+    setTimeout(() => document.querySelector('.shell').classList.remove('shake'), 450);
+  } else if (line === 'DODGE') {
+    setTelem('tv-state','DODGE!','danger');
+    setTimeout(() => setTelem('tv-state','IDLE',''), 1200);
+  } else if (line === 'AUTO_ON')  { setTelem('tv-mode','AUTO','active'); }
+  else if (line === 'MANUAL_ON')  { setTelem('tv-mode','MANUAL',''); }
+  else if (line === 'READY')      { setTelem('tv-state','READY','safe'); setTimeout(()=>setTelem('tv-state','IDLE',''),2000); }
+  // IR hit: Arduino sends "HIT:car1:front" or "HIT:car1:rear"
+  else if (line.startsWith('HIT:')) {
+    const parts = line.split(':');         // ['HIT', 'car1', 'front']
+    const attacker = parts[1] || '';
+    const side     = parts[2] || '';       // 'front' or 'rear'
+    if (fightActive && !fightEnded) registerHit(attacker, side);
+    document.querySelector('.shell').classList.add('shake');
+    setTimeout(()=>document.querySelector('.shell').classList.remove('shake'),450);
+  }
+}
+
+async function sendBT(cmd) {
+  if (!btChar) return;
+  try { await btChar.writeValue(enc.encode(cmd)); pkts++; document.getElementById('tv-pkts').textContent = pkts; }
+  catch(e) { console.warn('BT err', e); }
+}
+
+// ════════════════════════════════════════
+//  BATTERY DISPLAY
+// ════════════════════════════════════════
+function updateBattery(carNum, pct) {
+  const pctEl   = document.getElementById('batt-pct-' + carNum);
+  const fillEl  = document.getElementById('batt-fill-' + carNum);
+  const connEl  = document.getElementById('batt-conn-' + carNum);
+  const ledEl   = document.getElementById('batt-led-' + carNum);
+
+  pctEl.textContent = pct + '%';
+
+  const cls = pct <= 15 ? 'danger' : pct <= 30 ? 'warn' : '';
+  pctEl.className  = 'batt-pct ' + (cls || 'safe');
+  fillEl.className = 'batt-fill ' + (cls || '');
+  fillEl.style.width = pct + '%';
+  connEl.className = 'batt-conn-label online';
+  connEl.textContent = pct <= 15 ? '⚠ LOW BATTERY' : pct <= 30 ? 'Charging recommended' : 'Connected';
+
+  ledEl.className = 'batt-led online';
+}
+
+function updateBattLed(carNum, online) {
+  const ledEl  = document.getElementById('batt-led-' + carNum);
+  const pctEl  = document.getElementById('batt-pct-' + carNum);
+  const fillEl = document.getElementById('batt-fill-' + carNum);
+  const connEl = document.getElementById('batt-conn-' + carNum);
+  if (!online) {
+    ledEl.className  = 'batt-led offline';
+    pctEl.className  = 'batt-pct offline';
+    pctEl.textContent = '—';
+    fillEl.className = 'batt-fill offline';
+    fillEl.style.width = '0%';
+    connEl.className = 'batt-conn-label offline';
+    connEl.textContent = carNum === 1 ? 'Not connected' : 'Peer offline';
+  } else {
+    ledEl.className = 'batt-led online';
+    connEl.className = 'batt-conn-label online';
+    connEl.textContent = 'Connected';
+  }
+}
+
+// ════════════════════════════════════════
+//  WEBSOCKET
+// ════════════════════════════════════════
+let ws = null, peerOnline = false;
+function connectWS() {
+  try {
+    ws = new WebSocket(SERVER_URL);
+    ws.onopen = () => ws.send(JSON.stringify({ type:'register', role:CAR_ROLE }));
+    ws.onmessage = e => {
+      const m = JSON.parse(e.data);
+      if (m.type === 'peer_status' && m.role === PEER_ROLE) {
+        setPeerStatus(m.online);
+        if (!m.online) updateBattLed(2, false);
+      }
+      else if (m.type === 'peer_battery') { updateBattery(2, m.pct); }
+      else if (m.type === 'dance_start')  { receiveDance(m.routine, m.t); }
+      else if (m.type === 'dance_abort')  { abortDance(true); }
+      else if (m.type === 'fight_start')  { enterFightMode(); }
+      else if (m.type === 'fight_hit')    {
+        // Peer is reporting hits from their perspective — sync scores
+        // peer's "my" hits = our peer hits, peer's "peer" hits = our my hits
+        peerHits = m.hits_my; myHits = m.hits_peer;
+        updateFightScores();
+      }
+      else if (m.type === 'fight_end')    { if (fightActive && !fightEnded) endFight(); }
+      else if (m.type === 'fight_exit_request') {
+        peerExitPending = true;
+        document.getElementById('fight-exit-note').textContent = 'Peer wants to exit — press Exit too';
+        document.getElementById('result-exit-note').textContent = 'Peer wants to exit — press Exit too';
+        checkBothExited();
+      }
+      else if (m.type === 'fight_exit_confirm') { leaveFightMode(); }
+    };
+    ws.onclose = () => { setPeerStatus(false); setTimeout(connectWS, 3000); };
+    ws.onerror = () => ws.close();
+  } catch(e) { setTimeout(connectWS, 3000); }
+}
+function wsSend(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
+function setPeerStatus(on) {
+  peerOnline = on;
+  document.getElementById('peer-pill').classList.toggle('online', on);
+  document.getElementById('peer-label').textContent = on ? 'Peer online' : 'Peer offline';
+  const r = document.getElementById('peer-required');
+  if (r) r.style.display = on ? 'none' : 'block';
+  updateBattLed(2, on);
+}
+
+// ════════════════════════════════════════
+//  CONTROL MODE TOGGLE
+// ════════════════════════════════════════
+let joystickMode = false;
+function toggleControlMode() {
+  joystickMode = !joystickMode;
+  document.getElementById('ctrl-toggle').classList.toggle('on', joystickMode);
+  document.getElementById('view-dpad').classList.toggle('hidden', joystickMode);
+  document.getElementById('view-joy').classList.toggle('hidden', !joystickMode);
+  document.getElementById('lbl-dpad').classList.toggle('active-label', !joystickMode);
+  document.getElementById('lbl-joy').classList.toggle('active-label', joystickMode);
+  releaseDir();
+  joyReleaseLeft(); joyReleaseRight();
+  sendBT('S');
+}
+
+// ════════════════════════════════════════
+//  D-PAD INPUT
+// ════════════════════════════════════════
+let activeBtn = null;
+const heldKeys = new Set();
+const cmdLabels = { F:'FWD', B:'REV', L:'LEFT', R:'RIGHT', S:'STOP' };
+
+function pressDir(el, cmd) {
+  if (autoOn || danceActive || joystickMode) return;
+  if (activeBtn === el) return;
+  releaseDir();
+  activeBtn = el; el.classList.add('active');
+  sendBT(cmd); setTelem('tv-state', cmdLabels[cmd]||cmd, 'active');
+}
+function releaseDir() {
+  if (!activeBtn) return;
+  activeBtn.classList.remove('active'); activeBtn = null;
+  sendBT('S'); setTelem('tv-state','IDLE','');
+}
+function bindDir(id, cmd) {
+  const el = document.getElementById(id);
+  el.addEventListener('mousedown',  e => { e.preventDefault(); pressDir(el, cmd); });
+  el.addEventListener('touchstart', e => { e.preventDefault(); pressDir(el, cmd); }, { passive:false });
+}
+bindDir('fwd','F'); bindDir('bwd','B'); bindDir('left','L'); bindDir('right','R');
+
+const stopEl = document.getElementById('stop');
+function doStop() { releaseDir(); sendBT('S'); stopEl.classList.add('stop-flash'); setTimeout(()=>stopEl.classList.remove('stop-flash'),200); setTelem('tv-state','STOP',''); }
+stopEl.addEventListener('mousedown',  e => { e.preventDefault(); doStop(); });
+stopEl.addEventListener('touchstart', e => { e.preventDefault(); doStop(); }, { passive:false });
+window.addEventListener('mouseup',    () => { if(!joystickMode) releaseDir(); });
+window.addEventListener('touchend',   () => { if(!joystickMode) releaseDir(); });
+window.addEventListener('touchcancel',() => { if(!joystickMode) releaseDir(); });
+
+const keyMap    = { ArrowUp:'F',w:'F',W:'F', ArrowDown:'B',s:'B',S:'B', ArrowLeft:'L',a:'L',A:'L', ArrowRight:'R',d:'R',D:'R' };
+const keyBtnMap = { F:'fwd', B:'bwd', L:'left', R:'right' };
+document.addEventListener('keydown', e => {
+  if (joystickMode) return;
+  if (heldKeys.has(e.key)) return;
+  const cmd = keyMap[e.key]; if (!cmd) return;
+  heldKeys.add(e.key);
+  pressDir(document.getElementById(keyBtnMap[cmd]), cmd);
+  e.preventDefault();
+});
+document.addEventListener('keyup', e => {
+  heldKeys.delete(e.key);
+  if ([...heldKeys].some(k=>keyMap[k])) return;
+  releaseDir();
+});
+
+// ════════════════════════════════════════
+//  DUAL JOYSTICK INPUT
+// ════════════════════════════════════════
+const DEAD_ZONE = 0.15;
+
+// ── LEFT joystick (Y axis → throttle) ──
+let joyLeftActive = false, joyLeftLastCmd = 'S', joyLeftNy = 0;
+const joyBaseLeft  = document.getElementById('joy-base-left');
+const joyKnobLeft  = document.getElementById('joy-knob-left');
+const joyThEl      = document.getElementById('joy-throttle');
+
+function getCenter(el) {
+  const r = el.getBoundingClientRect();
+  return { cx: r.left + r.width/2, cy: r.top + r.height/2, radius: r.width/2 };
+}
+
+function joyMoveLeft(clientX, clientY) {
+  const { cx, cy, radius } = getCenter(joyBaseLeft);
+  let dy = clientY - cy;
+  const maxR = radius * 0.7;
+  dy = Math.max(-maxR, Math.min(maxR, dy));
+  joyKnobLeft.style.transform = `translate(-50%, calc(-50% + ${dy}px))`;
+  joyLeftNy = -(dy / maxR);
+  joyThEl.textContent = Math.abs(joyLeftNy) < DEAD_ZONE ? '0%' : Math.round(joyLeftNy * 100) + '%';
+  resolveJoyCmd();
+}
+
+function joyReleaseLeft() {
+  joyLeftActive = false; joyLeftNy = 0;
+  joyKnobLeft.style.transition = 'transform 0.3s cubic-bezier(.34,1.56,.64,1)';
+  joyKnobLeft.style.transform = 'translate(-50%, -50%)';
+  joyKnobLeft.classList.remove('held');
+  joyBaseLeft.classList.remove('active');
+  joyThEl.textContent = '0%';
+  setTimeout(() => joyKnobLeft.style.transition = '', 320);
+  resolveJoyCmd();
+}
+
+// ── RIGHT joystick (X axis → steering) ──
+let joyRightActive = false, joyRightLastCmd = 'S', joyRightNx = 0;
+const joyBaseRight = document.getElementById('joy-base-right');
+const joyKnobRight = document.getElementById('joy-knob-right');
+const joyStEl      = document.getElementById('joy-steering');
+
+function joyMoveRight(clientX, clientY) {
+  const { cx, cy, radius } = getCenter(joyBaseRight);
+  let dx = clientX - cx;
+  const maxR = radius * 0.7;
+  dx = Math.max(-maxR, Math.min(maxR, dx));
+  joyKnobRight.style.transform = `translate(calc(-50% + ${dx}px), -50%)`;
+  joyRightNx = dx / maxR;
+  joyStEl.textContent = Math.abs(joyRightNx) < DEAD_ZONE ? '0%' : Math.round(joyRightNx * 100) + '%';
+  resolveJoyCmd();
+}
+
+function joyReleaseRight() {
+  joyRightActive = false; joyRightNx = 0;
+  joyKnobRight.style.transition = 'transform 0.3s cubic-bezier(.34,1.56,.64,1)';
+  joyKnobRight.style.transform = 'translate(-50%, -50%)';
+  joyKnobRight.classList.remove('held');
+  joyBaseRight.classList.remove('active');
+  joyStEl.textContent = '0%';
+  setTimeout(() => joyKnobRight.style.transition = '', 320);
+  resolveJoyCmd();
+}
+
+// ── Combined command resolver ──
+let lastThrottleCmd = 'S', lastSteerCmd = 'S';
+function resolveJoyCmd() {
+  if (autoOn || danceActive) return;
+
+  // Throttle
+  const ay = Math.abs(joyLeftNy);
+  let tCmd = 'S';
+  if (ay >= DEAD_ZONE) tCmd = joyLeftNy > 0 ? 'F' : 'B';
+  if (tCmd !== lastThrottleCmd) {
+    lastThrottleCmd = tCmd;
+    sendBT(tCmd);
+    setTelem('tv-state', cmdLabels[tCmd]||tCmd, tCmd==='S'?'':'active');
+  }
+
+  // Steering (only send if no throttle command is active, to avoid overwrite)
+  const ax = Math.abs(joyRightNx);
+  let sCmd = 'S';
+  if (ax >= DEAD_ZONE) sCmd = joyRightNx > 0 ? 'R' : 'L';
+  if (sCmd !== lastSteerCmd) {
+    lastSteerCmd = sCmd;
+    if (tCmd === 'S') {
+      sendBT(sCmd);
+      setTelem('tv-state', cmdLabels[sCmd]||sCmd, sCmd==='S'?'':'active');
+    }
+  }
+}
+
+// ── Touch tracking for multi-touch (both joysticks at once) ──
+const touchJoyMap = {}; // touchId → 'left' | 'right'
+
+function isInside(el, clientX, clientY) {
+  const r = el.getBoundingClientRect();
+  const cx = r.left + r.width/2, cy = r.top + r.height/2, rad = r.width/2;
+  return Math.hypot(clientX - cx, clientY - cy) <= rad;
+}
+
+joyBaseLeft.addEventListener('touchstart', e => {
+  if (!joystickMode || autoOn || danceActive) return;
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    touchJoyMap[t.identifier] = 'left';
+    joyLeftActive = true;
+    joyKnobLeft.classList.add('held');
+    joyBaseLeft.classList.add('active');
+    joyKnobLeft.style.transition = '';
+    joyMoveLeft(t.clientX, t.clientY);
+  }
+}, { passive: false });
+
+joyBaseRight.addEventListener('touchstart', e => {
+  if (!joystickMode || autoOn || danceActive) return;
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    touchJoyMap[t.identifier] = 'right';
+    joyRightActive = true;
+    joyKnobRight.classList.add('held');
+    joyBaseRight.classList.add('active');
+    joyKnobRight.style.transition = '';
+    joyMoveRight(t.clientX, t.clientY);
+  }
+}, { passive: false });
+
+window.addEventListener('touchmove', e => {
+  if (!joystickMode) return;
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    const side = touchJoyMap[t.identifier];
+    if (side === 'left')  joyMoveLeft(t.clientX, t.clientY);
+    if (side === 'right') joyMoveRight(t.clientX, t.clientY);
+  }
+}, { passive: false });
+
+window.addEventListener('touchend', e => {
+  for (const t of e.changedTouches) {
+    const side = touchJoyMap[t.identifier];
+    if (side === 'left')  joyReleaseLeft();
+    if (side === 'right') joyReleaseRight();
+    delete touchJoyMap[t.identifier];
+  }
+});
+window.addEventListener('touchcancel', e => {
+  for (const t of e.changedTouches) {
+    const side = touchJoyMap[t.identifier];
+    if (side === 'left')  joyReleaseLeft();
+    if (side === 'right') joyReleaseRight();
+    delete touchJoyMap[t.identifier];
+  }
+});
+
+// Mouse (desktop) — one at a time
+let mouseJoySide = null;
+joyBaseLeft.addEventListener('mousedown', e => {
+  if (!joystickMode || autoOn || danceActive) return;
+  e.preventDefault();
+  mouseJoySide = 'left';
+  joyLeftActive = true;
+  joyKnobLeft.classList.add('held');
+  joyBaseLeft.classList.add('active');
+  joyKnobLeft.style.transition = '';
+  joyMoveLeft(e.clientX, e.clientY);
+});
+joyBaseRight.addEventListener('mousedown', e => {
+  if (!joystickMode || autoOn || danceActive) return;
+  e.preventDefault();
+  mouseJoySide = 'right';
+  joyRightActive = true;
+  joyKnobRight.classList.add('held');
+  joyBaseRight.classList.add('active');
+  joyKnobRight.style.transition = '';
+  joyMoveRight(e.clientX, e.clientY);
+});
+window.addEventListener('mousemove', e => {
+  if (mouseJoySide === 'left')  joyMoveLeft(e.clientX, e.clientY);
+  if (mouseJoySide === 'right') joyMoveRight(e.clientX, e.clientY);
+});
+window.addEventListener('mouseup', () => {
+  if (mouseJoySide === 'left')  joyReleaseLeft();
+  if (mouseJoySide === 'right') joyReleaseRight();
+  mouseJoySide = null;
+});
+
+// ════════════════════════════════════════
+//  DANCE ROUTINES
+// ════════════════════════════════════════
+const ROUTINES = {
+  faceoff:{ name:'Face-Off', steps:[['F','F',600],['S','S',300],['B','B',600],['S','S',200],['L','R',500],['R','L',500],['F','F',400],['S','S',300],['B','B',700],['S','S',200]] },
+  tango:  { name:'Tango',    steps:[['F','B',500],['S','S',150],['B','F',500],['S','S',150],['F','B',600],['S','S',150],['B','F',600],['S','S',150],['L','R',600],['R','L',600],['S','S',300]] },
+  orbit:  { name:'Orbit',    steps:[['R','R',400],['F','F',300],['R','R',400],['F','F',300],['R','R',400],['F','F',300],['R','R',400],['F','F',300],['L','L',400],['F','F',300],['L','L',400],['F','F',300],['S','S',200]] },
+  shake:  { name:'Robot Shake', steps:[['L','R',180],['R','L',180],['L','R',180],['R','L',180],['L','R',180],['R','L',180],['F','F',400],['L','R',180],['R','L',180],['L','R',180],['R','L',180],['S','S',200]] },
+  wave:   { name:'Wave',     steps:[['F','S',300],['S','F',300],['F','S',300],['S','F',300],['F','S',300],['S','F',300],['F','S',300],['S','F',300],['B','B',500],['S','S',300]] },
+  salute: { name:'Salute',   steps:[['R','R',500],['R','R',500],['L','L',500],['L','L',500],['F','B',400],['B','F',400],['S','S',500]] }
+};
+
+let danceTimer=null, danceStep=0, currentRoutine=null, danceTotal=0;
+function startDance(k) {
+  if (!peerOnline) { alert('Peer car must be online for dance mode!'); return; }
+  if (danceActive) abortDance();
+  wsSend({ type:'dance_start', routine:k, t:Date.now() });
+  executeDance(k, 0);
+  showDanceUI(ROUTINES[k].name);
+}
+function receiveDance(k, t) { executeDance(k, 1); showDanceUI(ROUTINES[k].name + ' (synced)'); }
+function executeDance(k, idx) {
+  const r = ROUTINES[k]; currentRoutine=k; danceActive=true; danceStep=0;
+  danceTotal = r.steps.reduce((a,s)=>a+s[2],0);
+  let elapsed=0; const prog=document.getElementById('dance-prog');
+  function next() {
+    if (!danceActive || danceStep>=r.steps.length) { sendBT('S'); endDance(); return; }
+    const s=r.steps[danceStep]; sendBT(s[idx]); danceStep++;
+    elapsed+=s[2]; if(prog) prog.style.width=Math.min(100,(elapsed/danceTotal)*100)+'%';
+    setTelem('tv-state', s[idx]==='S'?'STOP':cmdLabels[s[idx]]||s[idx], s[idx]==='S'?'':'active');
+    danceTimer=setTimeout(next, s[2]);
+  }
+  next();
+}
+function showDanceUI(name) { document.getElementById('dance-name-txt').textContent=name; document.getElementById('dance-status').style.display='flex'; }
+function endDance() { danceActive=false; currentRoutine=null; document.getElementById('dance-status').style.display='none'; document.getElementById('dance-prog').style.width='0%'; setTelem('tv-state','IDLE',''); }
+function abortDance(fromPeer=false) { if(!fromPeer) wsSend({type:'dance_abort'}); clearTimeout(danceTimer); sendBT('S'); endDance(); }
+
+// ════════════════════════════════════════
+//  AUTO MODE
+// ════════════════════════════════════════
+function toggleAuto() {
+  autoOn = !autoOn;
+  sendBT(autoOn ? 'A' : 'M');
+  document.getElementById('auto-orb').classList.toggle('off', !autoOn);
+  document.getElementById('auto-btn').classList.toggle('on', autoOn);
+  document.getElementById('auto-btn').textContent = autoOn ? 'DISENGAGE AUTO MODE' : 'ENGAGE AUTO MODE';
+  document.getElementById('auto-title').textContent = autoOn ? 'Exploring…' : 'Auto-Explore';
+  setTelem('tv-mode', autoOn?'AUTO':'MANUAL', autoOn?'active':'');
+  const scan = document.getElementById('auto-scan');
+  if (autoOn) {
+    scan.style.transition='width 2s linear';
+    const loop=()=>{ if(!autoOn){scan.style.width='0%';return;} scan.style.width='100%'; setTimeout(()=>{scan.style.width='0%';setTimeout(loop,200);},2000); };
+    loop();
+  }
+}
+
+// ════════════════════════════════════════
+//  UI HELPERS
+// ════════════════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.panel===name));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+name));
+}
+function setTelem(id, val, cls) {
+  const el=document.getElementById(id); el.textContent=val;
+  el.className='telem-val'+(cls?' '+cls:'');
+}
+function updateProximity(side, cm) {
+  // Only update the prox bar with the front sensor
+  if (side === 'front') {
+    const safe=cm>999?100:Math.min(100,(cm/100)*100);
+    document.getElementById('prox-fill').style.width=safe+'%';
+    document.getElementById('prox-fill').style.background=cm<=10?'var(--danger)':cm<=20?'var(--warn)':'var(--safe)';
+    document.getElementById('prox-cm').textContent=cm>999?'∞ cm':cm+' cm';
+    const tv=document.getElementById('tv-dist');
+    tv.textContent=cm>999?'∞':cm+'cm';
+    tv.className='telem-val'+(cm<=10?' danger':cm<=20?' warn':'');
+  }
+  // Rear distance shown in crash log during fight mode
+  if (side === 'rear' && fightActive) {
+    const rearEl = document.getElementById('crash-msg');
+    if (cm <= 20) {
+      rearEl.textContent = '⚠ Enemy ' + (cm > 999 ? '∞' : cm) + 'cm behind you!';
+      rearEl.className = 'crash-msg';
+    }
+  }
+}
+const crashEmojis=['😱','🫠','💀','🚨','😤','🤯','🫣'];
+function showCrashMsg(msg) {
+  document.getElementById('crash-msg').textContent='"'+msg+'"';
+  document.getElementById('crash-msg').className='crash-msg';
+  document.querySelector('.crash-emoji').textContent=crashEmojis[Math.floor(Math.random()*crashEmojis.length)];
+}
+
+// ════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════
+connectWS();
+
+// ════════════════════════════════════════
+//  FIGHT MODE
+// ════════════════════════════════════════
+const FIGHT_DURATION = 180; // 3 minutes
+let fightActive      = false;
+let fightTimerInt    = null;
+let fightSecsLeft    = FIGHT_DURATION;
+let myHits           = 0;
+let peerHits         = 0;
+let myExitPending    = false;
+let peerExitPending  = false;
+let fightJoyMode     = false;
+let fightEnded       = false;
+
+// IR hit cooldown — ignore repeated hits within 1.5s
+let lastHitTime = 0;
+const HIT_COOLDOWN_MS = 1500;
+
+function enterFightMode() {
+  if (!peerOnline) { alert('Peer car must be online to start Fight Mode!'); return; }
+  if (fightActive) return;
+
+  // Stop any ongoing modes
+  if (autoOn) toggleAuto();
+  if (danceActive) abortDance();
+  releaseDir();
+  joyReleaseLeft(); joyReleaseRight();
+  sendBT('S');
+  sendBT('FIGHT_ON'); // tell Arduino to enable IR emitter
+
+  fightActive    = true;
+  fightEnded     = false;
+  myHits         = 0;
+  peerHits       = 0;
+  myExitPending  = false;
+  peerExitPending= false;
+  fightSecsLeft  = FIGHT_DURATION;
+
+  updateFightScores();
+  updateFightClock();
+  document.getElementById('fight-time-fill').style.width = '100%';
+  document.getElementById('fight-hitfeed-text').textContent = 'No hits yet — charge!';
+  document.getElementById('fight-hitfeed-text').classList.add('empty');
+  document.getElementById('fight-hitfeed-icon').textContent = '🎯';
+  document.getElementById('fight-exit-btn').className = 'fight-exit-btn';
+  document.getElementById('fight-exit-note').textContent = 'Both players must press Exit to leave';
+  document.getElementById('fight-result').classList.remove('active');
+  document.getElementById('result-exit-btn').className = 'result-exit-btn';
+
+  document.getElementById('fight-overlay').classList.add('active');
+
+  wsSend({ type: 'fight_start' });
+
+  fightTimerInt = setInterval(() => {
+    fightSecsLeft--;
+    updateFightClock();
+    const pct = (fightSecsLeft / FIGHT_DURATION) * 100;
+    const fill = document.getElementById('fight-time-fill');
+    fill.style.width = pct + '%';
+    fill.style.background = fightSecsLeft <= 30 ? 'var(--danger)' : fightSecsLeft <= 60 ? 'var(--warn)' : 'var(--accent)';
+    if (fightSecsLeft <= 0) endFight();
+  }, 1000);
+}
+
+function updateFightClock() {
+  const m = Math.floor(fightSecsLeft / 60);
+  const s = String(fightSecsLeft % 60).padStart(2, '0');
+  const el = document.getElementById('fight-clock');
+  el.textContent = m + ':' + s;
+  el.className = 'fight-clock' + (fightSecsLeft <= 10 ? ' danger' : fightSecsLeft <= 30 ? ' warn' : '');
+}
+
+function updateFightScores() {
+  document.getElementById('fscore-my-num').textContent   = myHits;
+  document.getElementById('fscore-peer-num').textContent = peerHits;
+  const myCard   = document.getElementById('fscore-my');
+  const peerCard = document.getElementById('fscore-peer');
+  myCard.classList.toggle('leading',   myHits > peerHits);
+  peerCard.classList.toggle('leading', peerHits > myHits);
+}
+
+// Called when THIS car's IR receiver gets hit by the OTHER car's emitter
+// side = 'front' or 'rear' (which of our receivers was triggered)
+function registerHit(attackerRole, side) {
+  const now = Date.now();
+  if (now - lastHitTime < HIT_COOLDOWN_MS) return; // cooldown
+  lastHitTime = now;
+
+  if (attackerRole === CAR_ROLE) {
+    myHits++;
+  } else {
+    peerHits++;
+  }
+  updateFightScores();
+
+  // Flash the defender card
+  const defCard = attackerRole === CAR_ROLE
+    ? document.getElementById('fscore-my')
+    : document.getElementById('fscore-peer');
+  defCard.classList.remove('hit-flash');
+  void defCard.offsetWidth; // reflow
+  defCard.classList.add('hit-flash');
+
+  // Screen shake
+  document.getElementById('fight-overlay').classList.add('shake');
+  setTimeout(() => document.getElementById('fight-overlay').classList.remove('shake'), 450);
+
+  // Hit feed
+  const hitEmojis = ['💥','⚡','🔥','💢','🎯','🏹'];
+  const emoji = hitEmojis[Math.floor(Math.random() * hitEmojis.length)];
+  const attackLabel = attackerRole === CAR_ROLE ? 'CAR 01' : 'CAR 02';
+  const sideLabel   = side === 'rear' ? ' (rear sneak!)' : side === 'front' ? ' (head-on!)' : '';
+  document.getElementById('fight-hitfeed-icon').textContent = side === 'rear' ? '🫢' : emoji;
+  document.getElementById('fight-hitfeed-text').textContent = attackLabel + ' scored a hit' + sideLabel;
+  document.getElementById('fight-hitfeed-text').classList.remove('empty');
+
+  // Broadcast hit to peer
+  wsSend({ type: 'fight_hit', attacker: attackerRole, side, hits_my: myHits, hits_peer: peerHits });
+}
+
+function endFight() {
+  if (fightEnded) return;
+  fightEnded = true;
+  clearInterval(fightTimerInt);
+  sendBT('S');
+  sendBT('FIGHT_OFF');
+
+  const resultEl   = document.getElementById('fight-result');
+  const trophyEl   = document.getElementById('result-trophy');
+  const titleEl    = document.getElementById('result-title');
+  const subEl      = document.getElementById('result-sub');
+
+  document.getElementById('result-my-num').textContent   = myHits;
+  document.getElementById('result-peer-num').textContent = peerHits;
+
+  if (myHits > peerHits) {
+    trophyEl.textContent = '🏆';
+    titleEl.textContent  = 'You Win!';
+    titleEl.style.color  = 'var(--safe)';
+    subEl.textContent    = myHits + ' hits vs ' + peerHits + ' hits';
+    document.getElementById('result-my-num').style.color   = 'var(--safe)';
+    document.getElementById('result-peer-num').style.color = 'var(--muted)';
+  } else if (peerHits > myHits) {
+    trophyEl.textContent = '💀';
+    titleEl.textContent  = 'You Lose';
+    titleEl.style.color  = 'var(--danger)';
+    subEl.textContent    = peerHits + ' hits vs ' + myHits + ' hits';
+    document.getElementById('result-my-num').style.color   = 'var(--danger)';
+    document.getElementById('result-peer-num').style.color = 'var(--warn)';
+  } else {
+    trophyEl.textContent = '🤝';
+    titleEl.textContent  = 'Draw!';
+    titleEl.style.color  = 'var(--warn)';
+    subEl.textContent    = 'Both scored ' + myHits + ' hits';
+    document.getElementById('result-my-num').style.color   = 'var(--warn)';
+    document.getElementById('result-peer-num').style.color = 'var(--warn)';
+  }
+
+  resultEl.classList.add('active');
+  wsSend({ type: 'fight_end', hits_my: myHits, hits_peer: peerHits });
+}
+
+function requestFightExit() {
+  myExitPending = true;
+  document.getElementById('fight-exit-btn').className = 'fight-exit-btn pending';
+  document.getElementById('result-exit-btn').className = 'result-exit-btn pending';
+  document.getElementById('fight-exit-note').textContent = 'Waiting for other player…';
+  document.getElementById('result-exit-note').textContent = 'Waiting for other player…';
+  wsSend({ type: 'fight_exit_request' });
+  checkBothExited();
+}
+
+function checkBothExited() {
+  if (myExitPending && peerExitPending) leaveFightMode();
+}
+
+function leaveFightMode() {
+  clearInterval(fightTimerInt);
+  fightActive = false; fightEnded = false;
+  myExitPending = false; peerExitPending = false;
+  myHits = 0; peerHits = 0;
+  sendBT('S');
+  sendBT('FIGHT_OFF');
+  document.getElementById('fight-overlay').classList.remove('active');
+  // Reset fight joysticks
+  fightJoyReleaseLeft(); fightJoyReleaseRight();
+  wsSend({ type: 'fight_exit_confirm' });
+}
+
+// Fight-mode control toggle (mirrors normal toggle but for fight dpad/joy)
+function toggleFightControlMode() {
+  fightJoyMode = !fightJoyMode;
+  document.getElementById('fctrl-toggle').classList.toggle('on', fightJoyMode);
+  document.getElementById('fview-dpad').classList.toggle('hidden', fightJoyMode);
+  document.getElementById('fview-joy').classList.toggle('hidden', !fightJoyMode);
+  document.getElementById('flbl-dpad').classList.toggle('active-label', !fightJoyMode);
+  document.getElementById('flbl-joy').classList.toggle('active-label', fightJoyMode);
+  fightReleaseDir();
+  fightJoyReleaseLeft(); fightJoyReleaseRight();
+  sendBT('S');
+}
+
+// ── Fight D-Pad ──
+let fightActiveBtn = null;
+function fightPressDir(el, cmd) {
+  if (!fightActive || fightJoyMode) return;
+  if (fightActiveBtn === el) return;
+  fightReleaseDir();
+  fightActiveBtn = el; el.classList.add('active');
+  sendBT(cmd);
+}
+function fightReleaseDir() {
+  if (!fightActiveBtn) return;
+  fightActiveBtn.classList.remove('active'); fightActiveBtn = null;
+  sendBT('S');
+}
+function fbindDir(id, cmd) {
+  const el = document.getElementById(id);
+  el.addEventListener('mousedown',  e => { e.preventDefault(); fightPressDir(el, cmd); });
+  el.addEventListener('touchstart', e => { e.preventDefault(); fightPressDir(el, cmd); }, { passive: false });
+}
+fbindDir('ffwd','F'); fbindDir('fbwd','B'); fbindDir('fleft','L'); fbindDir('fright','R');
+const fstopEl = document.getElementById('fstop');
+fstopEl.addEventListener('mousedown',  e => { e.preventDefault(); fightReleaseDir(); sendBT('S'); fstopEl.classList.add('stop-flash'); setTimeout(()=>fstopEl.classList.remove('stop-flash'),200); });
+fstopEl.addEventListener('touchstart', e => { e.preventDefault(); fightReleaseDir(); sendBT('S'); fstopEl.classList.add('stop-flash'); setTimeout(()=>fstopEl.classList.remove('stop-flash'),200); }, { passive:false });
+window.addEventListener('mouseup',     () => { if(fightActive && !fightJoyMode) fightReleaseDir(); });
+
+// ── Fight Joysticks ──
+let fJoyLeftNy=0, fJoyRightNx=0, fLastTCmd='S', fLastSCmd='S';
+const fjoyBaseLeft  = document.getElementById('fjoy-base-left');
+const fjoyKnobLeft  = document.getElementById('fjoy-knob-left');
+const fjoyThEl      = document.getElementById('fjoy-throttle');
+const fjoyBaseRight = document.getElementById('fjoy-base-right');
+const fjoyKnobRight = document.getElementById('fjoy-knob-right');
+const fjoyStEl      = document.getElementById('fjoy-steering');
+
+function fightJoyMoveLeft(cx,cy){
+  const c=getCenter(fjoyBaseLeft);
+  let dy=cy-c.cy; const maxR=c.radius*0.7;
+  dy=Math.max(-maxR,Math.min(maxR,dy));
+  fjoyKnobLeft.style.transform=`translate(-50%, calc(-50% + ${dy}px))`;
+  fJoyLeftNy=-(dy/maxR);
+  fjoyThEl.textContent=Math.abs(fJoyLeftNy)<DEAD_ZONE?'0%':Math.round(fJoyLeftNy*100)+'%';
+  resolveFightJoyCmd();
+}
+function fightJoyReleaseLeft(){
+  fJoyLeftNy=0;
+  fjoyKnobLeft.style.transition='transform 0.3s cubic-bezier(.34,1.56,.64,1)';
+  fjoyKnobLeft.style.transform='translate(-50%,-50%)';
+  fjoyKnobLeft.classList.remove('held'); fjoyBaseLeft.classList.remove('active');
+  fjoyThEl.textContent='0%';
+  setTimeout(()=>fjoyKnobLeft.style.transition='',320);
+  resolveFightJoyCmd();
+}
+function fightJoyMoveRight(cx,cy){
+  const c=getCenter(fjoyBaseRight);
+  let dx=cx-c.cx; const maxR=c.radius*0.7;
+  dx=Math.max(-maxR,Math.min(maxR,dx));
+  fjoyKnobRight.style.transform=`translate(calc(-50% + ${dx}px), -50%)`;
+  fJoyRightNx=dx/maxR;
+  fjoyStEl.textContent=Math.abs(fJoyRightNx)<DEAD_ZONE?'0%':Math.round(fJoyRightNx*100)+'%';
+  resolveFightJoyCmd();
+}
+function fightJoyReleaseRight(){
+  fJoyRightNx=0;
+  fjoyKnobRight.style.transition='transform 0.3s cubic-bezier(.34,1.56,.64,1)';
+  fjoyKnobRight.style.transform='translate(-50%,-50%)';
+  fjoyKnobRight.classList.remove('held'); fjoyBaseRight.classList.remove('active');
+  fjoyStEl.textContent='0%';
+  setTimeout(()=>fjoyKnobRight.style.transition='',320);
+  resolveFightJoyCmd();
+}
+function resolveFightJoyCmd(){
+  if(!fightActive || !fightJoyMode) return;
+  const ay=Math.abs(fJoyLeftNy);
+  let tCmd='S'; if(ay>=DEAD_ZONE) tCmd=fJoyLeftNy>0?'F':'B';
+  if(tCmd!==fLastTCmd){fLastTCmd=tCmd;sendBT(tCmd);}
+  const ax=Math.abs(fJoyRightNx);
+  let sCmd='S'; if(ax>=DEAD_ZONE) sCmd=fJoyRightNx>0?'R':'L';
+  if(sCmd!==fLastSCmd){fLastSCmd=sCmd;if(tCmd==='S')sendBT(sCmd);}
+}
+
+// Fight touch tracking
+const fTouchJoyMap={};
+fjoyBaseLeft.addEventListener('touchstart',e=>{if(!fightActive||!fightJoyMode)return;e.preventDefault();for(const t of e.changedTouches){fTouchJoyMap[t.identifier]='left';fjoyKnobLeft.classList.add('held');fjoyBaseLeft.classList.add('active');fjoyKnobLeft.style.transition='';fightJoyMoveLeft(t.clientX,t.clientY);}},{passive:false});
+fjoyBaseRight.addEventListener('touchstart',e=>{if(!fightActive||!fightJoyMode)return;e.preventDefault();for(const t of e.changedTouches){fTouchJoyMap[t.identifier]='right';fjoyKnobRight.classList.add('held');fjoyBaseRight.classList.add('active');fjoyKnobRight.style.transition='';fightJoyMoveRight(t.clientX,t.clientY);}},{passive:false});
+window.addEventListener('touchmove',e=>{if(!fightActive||!fightJoyMode)return;e.preventDefault();for(const t of e.changedTouches){const s=fTouchJoyMap[t.identifier];if(s==='left')fightJoyMoveLeft(t.clientX,t.clientY);if(s==='right')fightJoyMoveRight(t.clientX,t.clientY);}},{passive:false});
+window.addEventListener('touchend',e=>{for(const t of e.changedTouches){const s=fTouchJoyMap[t.identifier];if(s==='left')fightJoyReleaseLeft();if(s==='right')fightJoyReleaseRight();delete fTouchJoyMap[t.identifier];}});
+window.addEventListener('touchcancel',e=>{for(const t of e.changedTouches){const s=fTouchJoyMap[t.identifier];if(s==='left')fightJoyReleaseLeft();if(s==='right')fightJoyReleaseRight();delete fTouchJoyMap[t.identifier];}});
+
+let fMouseJoySide=null;
+fjoyBaseLeft.addEventListener('mousedown',e=>{if(!fightActive||!fightJoyMode)return;e.preventDefault();fMouseJoySide='left';fjoyKnobLeft.classList.add('held');fjoyBaseLeft.classList.add('active');fjoyKnobLeft.style.transition='';fightJoyMoveLeft(e.clientX,e.clientY);});
+fjoyBaseRight.addEventListener('mousedown',e=>{if(!fightActive||!fightJoyMode)return;e.preventDefault();fMouseJoySide='right';fjoyKnobRight.classList.add('held');fjoyBaseRight.classList.add('active');fjoyKnobRight.style.transition='';fightJoyMoveRight(e.clientX,e.clientY);});
+window.addEventListener('mousemove',e=>{if(fMouseJoySide==='left')fightJoyMoveLeft(e.clientX,e.clientY);if(fMouseJoySide==='right')fightJoyMoveRight(e.clientX,e.clientY);});
+window.addEventListener('mouseup',()=>{if(fMouseJoySide==='left')fightJoyReleaseLeft();if(fMouseJoySide==='right')fightJoyReleaseRight();fMouseJoySide=null;});
+
+</script>
+</body>
+</html>
